@@ -28,25 +28,55 @@ dp = Dispatcher()
 # --- АРХИТЕКТУРНЫЕ ФУНКЦИИ ---
 
 def format_to_tg_html(text: str) -> str:
-    """Безопасный конвертер Markdown в HTML, понятный Телеграму."""
-    # 1. Сначала обязательно экранируем системные символы HTML
+    """Продвинутый конвертер Markdown -> Telegram HTML с поддержкой таблиц и списков."""
+    
+    # 1. Экранируем системные символы HTML
     text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
     
-    # 2. Многострочный код: ```python\n code \n```
+    # 2. УМНАЯ ОБРАБОТКА ТАБЛИЦ (Оборачиваем в моноширинный шрифт)
+    lines = text.split('\n')
+    in_table = False
+    parsed_lines = []
+    
+    for line in lines:
+        # Если строка содержит хотя бы две палочки '|' - это 99% строка таблицы
+        if line.strip().count('|') >= 2:
+            if not in_table:
+                parsed_lines.append('<pre><code>') # Открываем блок консольного шрифта
+                in_table = True
+            parsed_lines.append(line)
+        else:
+            if in_table:
+                parsed_lines.append('</code></pre>') # Закрываем блок
+                in_table = False
+            parsed_lines.append(line)
+            
+    if in_table: # Закрываем, если таблица была в самом конце текста
+        parsed_lines.append('</code></pre>')
+        
+    text = '\n'.join(parsed_lines)
+    
+    # 3. Блоки кода (чтобы не сломать то, что уже обернули)
     text = re.sub(
         r'```(\w*)\n(.*?)```', 
         lambda m: f'<pre><code class="language-{m.group(1)}">{m.group(2)}</code></pre>' if m.group(1) else f'<pre><code>{m.group(2)}</code></pre>',
         text, 
         flags=re.DOTALL
     )
-    # На всякий случай обрабатываем блоки кода без переноса строки
     text = re.sub(r'```(.*?)```', r'<pre><code>\1</code></pre>', text, flags=re.DOTALL)
     
-    # 3. Инлайн код: `код` -> <code>код</code>
+    # 4. Инлайн код: `код` -> <code>код</code>
     text = re.sub(r'`([^`]+)`', r'<code>\1</code>', text)
     
-    # 4. Жирный шрифт: **текст** -> <b>текст</b>
+    # 5. Жирный шрифт: **текст** -> <b>текст</b>
     text = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', text)
+    
+    # 6. Заголовки (эмулируем: делаем жирным и подчеркнутым)
+    # Ищем от 1 до 6 решеток в начале строки, пробел и сам текст заголовка
+    text = re.sub(r'^#{1,6}\s+(.+)$', r'<b><u>\1</u></b>', text, flags=re.MULTILINE)
+    
+    # 7. Маркированные списки (меняем '* ' или '- ' на красивую точку '• ')
+    text = re.sub(r'^\s*[\*\-]\s+', '• ', text, flags=re.MULTILINE)
     
     return text
 
