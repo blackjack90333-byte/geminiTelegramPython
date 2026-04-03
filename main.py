@@ -15,7 +15,7 @@ PORT = int(os.getenv("PORT", 10000)) # Render сам назначит порт
 # Настраиваем Gemini
 genai.configure(api_key=GEMINI_API_KEY)
 # Используем flash-модель: она супер-быстрая и лимитов Free Tier хватит за глаза
-model = genai.GenerativeModel('gemini-1.5-flash')
+model = genai.GenerativeModel('gemini-2.5-flash')
 
 # Инициализируем бота и диспетчер
 bot = Bot(token=TELEGRAM_TOKEN)
