@@ -124,7 +124,12 @@ async def cmd_start(message: Message):
 @dp.message(F.text | F.photo)
 async def handle_message(message: Message):
     # Вместо сообщения-заглушки используем асинхронный статус "печатает..."
+    
+    
     async with ChatActionSender.typing(bot=bot, chat_id=message.chat.id):
+
+        wait_msg = await message.answer("🤔 Думаю...")
+        
         try:
             content_to_send = []
             
@@ -146,18 +151,23 @@ async def handle_message(message: Message):
                 content_to_send.append(message.text)
 
             # Отправляем в Gemini
-            response = model.generate_content(content_to_send)
+            response = await model.generate_content_async(content_to_send)
             
-            # 1. Сначала режем сырой текст по логике
+            
+            # 4. Нарезка и отправка
             chunks = smart_chunk_text(response.text)
-            
-            # 2. Потом конвертируем куски в HTML и отправляем
-            for chunk in chunks:
+            for i, chunk in enumerate(chunks):
                 safe_html = format_to_tg_html(chunk)
-                await message.answer(safe_html, parse_mode=ParseMode.HTML)
+                if i == 0:
+                    # Редактируем заглушку первым куском ответа
+                    await wait_msg.edit_text(safe_html, parse_mode=ParseMode.HTML)
+                else:
+                    # Остальное шлем новыми сообщениями
+                    await message.answer(safe_html, parse_mode=ParseMode.HTML)
                 
         except Exception as e:
-            await message.answer(f"Упс, ошибка на стороне API: <code>{str(e)}</code>", parse_mode=ParseMode.HTML)
+            error_text = f"❌ Ошибка: <code>{str(e)}</code>"
+            await wait_msg.edit_text(error_text, parse_mode=ParseMode.HTML)
 
 
 # --- ВЕБ-СЕРВЕР ---
