@@ -35,10 +35,23 @@ async def handle_message(message: Message):
     try:
         # Отправляем текст из Телеграма в Gemini
         response = model.generate_content(message.text)
+        full_text = response.text
         
-        # Редактируем наше сообщение "Думаю...", заменяя его на готовый ответ
-        await wait_msg.edit_text(response.text)
+        # Лимит Телеграма 4096 символов, берем 4000 для надежности
+        max_length = 4000
         
+        # Разбиваем длинный текст на список кусков (chunks)
+        chunks = [full_text[i:i+max_length] for i in range(0, len(full_text), max_length)]
+        
+        # Отправляем куски пользователю
+        for i, chunk in enumerate(chunks):
+            if i == 0:
+                # Первый кусок редактирует сообщение "Думаю..."
+                await wait_msg.edit_text(chunk)
+            else:
+                # Все последующие куски отправляются следом как новые сообщения
+                await message.answer(chunk)
+                
     except Exception as e:
         await wait_msg.edit_text(f"Упс, произошла ошибка на стороне API: {e}")
 
